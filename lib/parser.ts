@@ -39,6 +39,8 @@ function isQuestion(line: string): boolean {
 function isSectionHeader(line: string): boolean {
   const trimmed = line.trim()
   if (!trimmed || trimmed.length < 3) return false
+  // Exclude placeholder text — never treat "e.g." lines as headings
+  if (/^e\.g\b/i.test(trimmed) || /^\(e\.g\./i.test(trimmed)) return false
   // ALL CAPS line
   if (trimmed === trimmed.toUpperCase() && /[A-Z]/.test(trimmed) && trimmed.length < 120) return true
   // Roman numeral or lettered section: "I.", "II.", "A.", "Section 1"
@@ -93,17 +95,7 @@ async function parseDocx(buffer: Buffer): Promise<ParsedQuestion[]> {
     headings.push(match[1].replace(/<[^>]+>/g, '').trim())
   }
 
-  const questions = extractFromText(text)
-
-  // Inject headings as section context if extractor missed them
-  if (questions.length > 0 && headings.length > 0 && !questions[0].section_context) {
-    questions.forEach((q, i) => {
-      const headingIndex = Math.floor((i / questions.length) * headings.length)
-      if (!q.section_context) q.section_context = headings[headingIndex] ?? ''
-    })
-  }
-
-  return questions
+  return extractFromText(text)
 }
 
 async function parsePdf(buffer: Buffer): Promise<ParsedQuestion[]> {
