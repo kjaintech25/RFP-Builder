@@ -7,9 +7,22 @@ export type RetrievedChunk = {
   similarity: number
 }
 
+export type StyleGuide = {
+  name: string
+  type: 'voice' | 'format' | 'compliance' | 'firm_context'
+  content: string
+}
+
 export type DraftResult = {
   draft: string
   source_answer_ids: string[]
+}
+
+const TYPE_LABELS: Record<StyleGuide['type'], string> = {
+  voice: 'BRAND VOICE',
+  format: 'FORMATTING RULES',
+  compliance: 'COMPLIANCE REQUIREMENTS',
+  firm_context: 'FIRM CONTEXT',
 }
 
 function buildClient(): OpenAI {
@@ -36,14 +49,25 @@ function getModel(): string {
   return process.env.OLLAMA_MODEL ?? 'llama3'
 }
 
-function buildSystemPrompt(chunks: RetrievedChunk[]): string {
-  const chunkText = chunks
-    .map((c) => `[ID: ${c.answer_id}]\nQ: ${c.question_text}\nA: ${c.answer_text}`)
-    .join('\n\n')
+function buildSystemPrompt(chunks: RetrievedChunk[], styleGuides: StyleGuide[]): string {
+  const sections: string[] = []
 
-  return `You are an RFP response assistant for an OCIO financial services firm.
+  sections.push(`You are an RFP response assistant for an OCIO financial services firm.`)
 
-STRICT RULES — you MUST follow these without exception:
+  // --- Style guides injected first so they constrain how chunks are used ---
+  if (styleGuides.length > 0) {
+    const guideBlock = styleGuides
+      .map((g) => `[${TYPE_LABELS[g.type]} — ${g.name}]\n${g.content}`)
+      .join('\n\n')
+
+    sections.push(
+      `STYLE & VOICE REQUIREMENTS — apply these rules to every sentence you write:\n\n${guideBlock}`
+    )
+  }
+
+  // --- Hard content-grounding rules ---
+  sections.push(
+    `STRICT CONTENT RULES — you MUST follow these without exception:
 1. You may ONLY use the approved answer excerpts provided below to draft your response.
 2. Do NOT use any knowledge from your training data, general knowledge, or the internet.
 3. Do NOT invent, extrapolate, or add any information not present in the excerpts.
@@ -51,9 +75,17 @@ STRICT RULES — you MUST follow these without exception:
 5. If the provided excerpts do not contain sufficient information, respond with exactly:
    INSUFFICIENT_CONTEXT: <brief reason why the excerpts do not cover this question>
 6. Never fabricate statistics, names, certifications, dates, or financial figures.
+7. Apply the style and voice requirements above when shaping how you present the content — but never let style override accuracy or the content constraints above.`
+  )
 
-APPROVED ANSWER EXCERPTS:
-${chunkText}`
+  // --- Answer chunks ---
+  const chunkText = chunks
+    .map((c) => `[ID: ${c.answer_id}]\nQ: ${c.question_text}\nA: ${c.answer_text}`)
+    .join('\n\n')
+
+  sections.push(`APPROVED ANSWER EXCERPTS:\n${chunkText}`)
+
+  return sections.join('\n\n---\n\n')
 }
 
 function extractSourceIds(text: string): string[] {
@@ -68,7 +100,8 @@ function extractSourceIds(text: string): string[] {
 
 export async function generateDraft(
   question: string,
-  retrievedChunks: RetrievedChunk[]
+  retrievedChunks: RetrievedChunk[],
+  styleGuides: StyleGuide[] = []
 ): Promise<DraftResult> {
   if (retrievedChunks.length === 0) {
     return {
@@ -83,7 +116,7 @@ export async function generateDraft(
   const completion = await client.chat.completions.create({
     model,
     messages: [
-      { role: 'system', content: buildSystemPrompt(retrievedChunks) },
+      { role: 'system', content: buildSystemPrompt(retrievedChunks, styleGuides) },
       { role: 'user', content: `Draft a response to this RFP question:\n\n${question}` },
     ],
     temperature: 0,

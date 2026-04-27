@@ -8,7 +8,7 @@ const config: Config = {
   ],
   theme: {
     fontFamily: {
-      sans: ['Arial', 'Helvetica', 'sans-serif'],
+      sans: ['var(--font-inter)', 'Arial', 'sans-serif'],
     },
     extend: {
       colors: {
