@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import QuestionNavigator, { NavQuestion } from '@/components/QuestionNavigator'
 import QuestionDetailView, { QuestionDetail, SourceChunk } from '@/components/QuestionDetailView'
 import WorkflowSidebar, { WorkflowMeta, Comment } from '@/components/WorkflowSidebar'
@@ -18,6 +18,8 @@ type EnrichedQuestion = {
   assigned_to_name: string | null
   due_date: string | null
   comments: Comment[]
+  parent_id: string | null
+  order_index: number
 }
 
 type Project = {
@@ -50,13 +52,28 @@ export default function WorkspaceClient({
 
   const activeQuestion = questions.find((q) => q.id === activeId) ?? null
 
+  const availableSections = useMemo(
+    () =>
+      Array.from(
+        new Set(questions.map((q) => q.section_context).filter((s): s is string => Boolean(s)))
+      ).sort(),
+    [questions]
+  )
+
   const navQuestions: NavQuestion[] = questions.map((q) => ({
     id: q.id,
     question_text: q.question_text,
     section_context: q.section_context,
     status: q.status,
     assigned_to_name: q.assigned_to_name,
+    parent_id: q.parent_id,
+    order_index: q.order_index,
   }))
+
+  // Find parent question text if this is a sub-question
+  const parentQuestion = activeQuestion?.parent_id
+    ? questions.find(q => q.id === activeQuestion.parent_id)
+    : null
 
   const activeDetail: QuestionDetail | null = activeQuestion
     ? {
@@ -66,6 +83,8 @@ export default function WorkspaceClient({
         draft_text: drafts[activeQuestion.id] ?? activeQuestion.draft_text,
         status: activeQuestion.status,
         sources: sources[activeQuestion.id] ?? [],
+        parent_id: activeQuestion.parent_id,
+        parent_question: parentQuestion?.question_text,
       }
     : null
 
@@ -76,6 +95,8 @@ export default function WorkspaceClient({
         status: activeQuestion.status,
         due_date: activeQuestion.due_date,
         comments: activeQuestion.comments,
+        section_context: activeQuestion.section_context,
+        available_sections: availableSections,
       }
     : null
 
@@ -134,6 +155,21 @@ export default function WorkspaceClient({
 
   const handleAccept = useCallback(() => handleStatusChange('approved'), [handleStatusChange])
   const handleReject = useCallback(() => handleStatusChange('rejected'), [handleStatusChange])
+
+  const handleSectionChange = useCallback(
+    async (section: string | null) => {
+      if (!activeId) return
+      setQuestions((prev) =>
+        prev.map((q) => (q.id === activeId ? { ...q, section_context: section } : q))
+      )
+      await fetch('/api/update-question', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question_id: activeId, section_context: section }),
+      }).catch(() => {})
+    },
+    [activeId]
+  )
 
   const handlePostComment = useCallback(
     async (body: string) => {
@@ -217,6 +253,7 @@ export default function WorkspaceClient({
           <WorkflowSidebar
             meta={activeMeta}
             onStatusChange={handleStatusChange}
+            onSectionChange={handleSectionChange}
             onAccept={handleAccept}
             onReject={handleReject}
             onPostComment={handlePostComment}

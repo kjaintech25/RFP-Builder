@@ -14,6 +14,7 @@
     "mammoth": "^1.12.0",
     "next": "14.2.35",
     "openai": "^6.34.0",
+    "pdf-parse": "^1.1.1",
     "pdfjs-dist": "^5.6.205",
     "react": "^18",
     "react-dom": "^18",
@@ -21,6 +22,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.19.39",
+    "@types/pdf-parse": "^1.1.5",
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "eslint": "^8",

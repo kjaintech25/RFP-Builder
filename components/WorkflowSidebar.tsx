@@ -17,6 +17,8 @@ export type WorkflowMeta = {
   status: QuestionStatus
   due_date: string | null
   comments: Comment[]
+  section_context: string | null
+  available_sections: string[]
 }
 
 const STATUS_OPTIONS: { value: QuestionStatus; label: string }[] = [
@@ -45,12 +47,14 @@ function timeAgo(iso: string): string {
 export default function WorkflowSidebar({
   meta,
   onStatusChange,
+  onSectionChange,
   onAccept,
   onReject,
   onPostComment,
 }: {
   meta: WorkflowMeta
   onStatusChange: (status: QuestionStatus) => void
+  onSectionChange: (section: string | null) => void
   onAccept: () => void
   onReject: () => void
   onPostComment: (body: string) => void
@@ -85,6 +89,20 @@ export default function WorkflowSidebar({
           >
             {STATUS_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide mb-1.5">Section</p>
+          <select
+            value={meta.section_context ?? ''}
+            onChange={(e) => onSectionChange(e.target.value || null)}
+            className="w-full text-sm border border-[#E2E8F0] rounded px-2.5 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-[#2E7D9A] text-[#1A1A2E]"
+          >
+            <option value="">Uncategorized</option>
+            {meta.available_sections.map((s) => (
+              <option key={s} value={s}>{s}</option>
             ))}
           </select>
         </div>

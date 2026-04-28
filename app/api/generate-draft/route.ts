@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { generateDraft, StyleGuide } from '@/lib/ai'
+import { generateEmbedding } from '@/lib/embeddings'
 
 export async function POST(req: Request) {
   const cookieStore = cookies()
@@ -46,7 +47,7 @@ export async function POST(req: Request) {
     .select('name, type, content')
     .eq('approval_status', 'approved')
     .eq('is_active', true)
-    .order('type', { ascending: true }) // voice → format → compliance → firm_context
+    .order('type', { ascending: true })
 
   const styleGuides: StyleGuide[] = (rawGuides ?? []).map(
     (g: { name: string; type: string; content: string }) => ({
@@ -56,25 +57,34 @@ export async function POST(req: Request) {
     })
   )
 
-  // Fetch approved answers (MVP: keyword retrieval; full path: embed → match_answers RPC)
-  const { data: answers, error: matchErr } = await supabase
-    .from('answers')
-    .select('id, question_text, answer_text')
-    .eq('approval_status', 'approved')
-    .limit(5)
+  // Try semantic search; fall through with empty chunks if embedding fails
+  let retrievedChunks: {
+    answer_id: string
+    question_text: string
+    answer_text: string
+    similarity: number
+  }[] = []
 
-  if (matchErr) {
-    return NextResponse.json({ error: matchErr.message }, { status: 500 })
-  }
-
-  const retrievedChunks = (answers ?? []).map(
-    (a: { id: string; question_text: string; answer_text: string }) => ({
-      answer_id: a.id,
-      question_text: a.question_text,
-      answer_text: a.answer_text,
-      similarity: 1,
+  try {
+    const questionEmbedding = await generateEmbedding(question_text)
+    const { data: matchingAnswers, error: matchErr } = await supabase.rpc('match_answers', {
+      query_embedding: questionEmbedding,
+      match_threshold: 0.7,
+      match_count: 5,
     })
-  )
+    if (matchErr) throw matchErr
+    retrievedChunks = (matchingAnswers ?? []).map(
+      (a: { id: string; question_text: string; answer_text: string; similarity: number }) => ({
+        answer_id: a.id,
+        question_text: a.question_text,
+        answer_text: a.answer_text,
+        similarity: a.similarity,
+      })
+    )
+  } catch (err) {
+    console.warn('Semantic search unavailable, proceeding without context:', err)
+    // retrievedChunks stays empty — generateDraft will return INSUFFICIENT_CONTEXT
+  }
 
   const result = await generateDraft(question_text, retrievedChunks, styleGuides)
 

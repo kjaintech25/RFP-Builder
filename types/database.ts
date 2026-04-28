@@ -46,12 +46,14 @@ export interface RfpQuestionRow {
   project_id: string
   question_text: string
   section_context: string | null
+  order_index: number
   status: QuestionStatus
   assigned_to: string | null
   matched_answer_id: string | null
   draft_text: string | null
   confidence_score: number | null
   due_date: string | null
+  parent_id: string | null
   created_at: string
   updated_at: string
 }

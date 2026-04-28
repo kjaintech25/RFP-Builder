@@ -27,7 +27,7 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  let body: { question_id: string; draft_text?: string; status?: string }
+  let body: { question_id: string; draft_text?: string; status?: string; section_context?: string | null }
   try {
     body = await req.json()
   } catch {
@@ -42,6 +42,7 @@ export async function PATCH(req: Request) {
   const patch: Record<string, unknown> = {}
   if (updates.draft_text !== undefined) patch.draft_text = updates.draft_text
   if (updates.status !== undefined) patch.status = updates.status
+  if (updates.section_context !== undefined) patch.section_context = updates.section_context ?? null
 
   if (Object.keys(patch).length === 0) {
     return NextResponse.json({ error: 'Nothing to update' }, { status: 400 })

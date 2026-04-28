@@ -17,6 +17,8 @@ export type QuestionDetail = {
   status: string
   is_stale?: boolean
   sources: SourceChunk[]
+  parent_id?: string | null
+  parent_question?: string
 }
 
 export default function QuestionDetailView({
@@ -60,6 +62,16 @@ export default function QuestionDetailView({
             {question.section_context}
           </p>
         )}
+
+        {/* Breadcrumb for sub-questions */}
+        {question.parent_question && (
+          <div className="mb-2">
+            <p className="text-xs text-[#6B7280]">
+              Parent question: <span className="text-[#1B3A5C] font-medium">{question.parent_question}</span>
+            </p>
+          </div>
+        )}
+
         <h2 className="text-base font-semibold text-[#1B3A5C] leading-snug">
           {question.question_text}
         </h2>

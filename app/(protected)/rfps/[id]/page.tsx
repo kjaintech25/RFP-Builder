@@ -38,9 +38,9 @@ export default async function RfpWorkspacePage({ params }: { params: { id: strin
 
   const { data: questions } = await supabase
     .from('rfp_questions')
-    .select('id, question_text, section_context, status, draft_text, assigned_to, due_date')
+    .select('id, question_text, section_context, status, draft_text, assigned_to, due_date, parent_id, order_index')
     .eq('project_id', params.id)
-    .order('created_at', { ascending: true })
+    .order('order_index', { ascending: true })
 
   // Fetch assignee names for questions that have assigned_to
   const assigneeIds = Array.from(
@@ -97,17 +97,7 @@ export default async function RfpWorkspacePage({ params }: { params: { id: strin
     }
   }
 
-  type QuestionStatus = 'unanswered' | 'drafted' | 'in_review' | 'approved' | 'rejected'
-
-  const enrichedQuestions = (questions ?? []).map((q: {
-    id: string
-    question_text: string
-    section_context: string | null
-    status: QuestionStatus
-    draft_text: string | null
-    assigned_to: string | null
-    due_date: string | null
-  }) => ({
+  const enrichedQuestions = (questions ?? []).map((q) => ({
     ...q,
     assigned_to_name: q.assigned_to ? (assigneeMap[q.assigned_to] ?? null) : null,
     comments: commentMap[q.id] ?? [],

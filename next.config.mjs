@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
-    serverComponentsExternalPackages: ['mammoth', 'pdfjs-dist', 'xlsx'],
+    serverComponentsExternalPackages: ['mammoth', 'pdf-parse', 'xlsx'],
   },
 }
 
